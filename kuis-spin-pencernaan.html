@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roda Kuis Pencernaan</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e6f3ff;--ink:#1d2b53;--main:#1fb5a3;--sun:#ffd23f;--ok:#c9f2d9;--bad:#ffd9d0}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:"Baloo 2","Comic Sans MS",system-ui,sans-serif;font-size:18px;display:flex;justify-content:center;padding:16px}
+.wrap{width:100%;max-width:520px}
+.card{background:#fff;border:3px solid var(--ink);border-radius:24px;padding:20px;box-shadow:0 6px 0 var(--ink);text-align:center}
+h1{margin:0 0 6px;font-size:1.9rem;line-height:1.1}
+p{margin:0 0 12px;line-height:1.4}
+button{font:inherit;font-weight:700;color:var(--ink);cursor:pointer;border:3px solid var(--ink);border-radius:16px;padding:12px 18px;background:var(--sun);box-shadow:0 4px 0 var(--ink)}
+button:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+button:disabled{opacity:.55;cursor:default}
+button:focus-visible{outline:4px solid var(--main);outline-offset:2px}
+.primary{background:var(--main);color:#fff;width:100%;font-size:1.25rem}
+.row{display:flex;justify-content:space-between;font-weight:700;margin-bottom:10px}
+.stage{position:relative;width:min(100%,340px);margin:6px auto 16px}
+#roda{width:100%;height:auto;display:block;border-radius:50%;border:4px solid var(--ink);background:#fff}
+.pin{position:absolute;top:-14px;left:50%;width:0;height:0;transform:translateX(-50%);border-left:16px solid transparent;border-right:16px solid transparent;border-top:30px solid var(--ink);z-index:2}
+.q{font-size:1.3rem;font-weight:800;line-height:1.25;margin-bottom:14px}
+.ikon{font-size:3.2rem;line-height:1}
+.opts{display:grid;gap:10px;text-align:left}
+.opt{width:100%;text-align:left;background:#fff}
+.opt.ok{background:var(--ok)}
+.opt.bad{background:var(--bad)}
+.opt:disabled{color:var(--ink);opacity:1}
+.opts.done .opt:not(.ok):not(.bad){opacity:.55}
+.fb{min-height:56px;margin:12px 0 8px;font-weight:700}
+.hidden{display:none}
+.stars{font-size:2.2rem}
+@media (prefers-reduced-motion:reduce){#roda{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <section id="pRoda" class="card">
+    <div class="row"><span id="sisa"></span><span id="skor"></span></div>
+    <h1>Putar rodanya!</h1>
+    <p>Roda akan berhenti di satu soal. Jawab, lalu putar lagi sampai semua soal habis.</p>
+    <div class="stage">
+      <div class="pin"></div>
+      <canvas id="roda" width="680" height="680"></canvas>
+    </div>
+    <button class="primary" id="btnPutar">PUTAR 🎡</button>
+  </section>
+
+  <section id="pSoal" class="card hidden">
+    <div class="ikon" id="ikon"></div>
+    <div class="q" id="tanya"></div>
+    <div class="opts" id="opsi"></div>
+    <div class="fb" id="fb" aria-live="polite"></div>
+    <button class="primary hidden" id="btnLanjut">Putar lagi</button>
+  </section>
+
+  <section id="pHasil" class="card hidden">
+    <div class="stars" id="bintang"></div>
+    <h1 id="judul"></h1>
+    <p id="pesan"></p>
+    <button class="primary" id="btnUlang">Main lagi dari awal</button>
+  </section>
+
+</main>
+
+<script>
+// Tambah atau ubah soal di sini. "j" = nomor jawaban benar (mulai dari 0), "e" = ikon di roda.
+const SOAL = [
+  {e:"👄", t:"Ke mana makanan pergi pertama kali setelah masuk mulut?", p:["Kerongkongan","Lambung","Usus halus","Usus besar"], j:0, n:"Setelah dikunyah, makanan turun lewat kerongkongan."},
+  {e:"🦷", t:"Bagian tubuh apa yang menghaluskan makanan saat dikunyah?", p:["Gigi","Hidung","Telinga","Jari"], j:0, n:"Gigi memotong dan menggiling makanan jadi kecil-kecil."},
+  {e:"💧", t:"Cairan di mulut yang melunakkan makanan disebut...", p:["Air liur","Keringat","Air mata","Darah"], j:0, n:"Air liur (ludah) membuat makanan lembut dan mudah ditelan."},
+  {e:"🧵", t:"Saluran yang menghubungkan mulut dengan lambung adalah...", p:["Kerongkongan","Tenggorokan udara","Usus buntu","Jantung"], j:0, n:"Kerongkongan mendorong makanan ke lambung."},
+  {e:"🥣", t:"Di mana makanan diaduk dan dicampur dengan cairan asam?", p:["Lambung","Mulut","Kerongkongan","Anus"], j:0, n:"Lambung mengaduk makanan hingga jadi bubur halus."},
+  {e:"🌀", t:"Sari-sari makanan paling banyak diserap oleh...", p:["Usus halus","Lambung","Kerongkongan","Gigi"], j:0, n:"Usus halus menyerap zat gizi agar dibawa darah ke seluruh tubuh."},
+  {e:"🚰", t:"Air dari sisa makanan diserap oleh...", p:["Usus besar","Mulut","Lambung","Kerongkongan"], j:0, n:"Usus besar menyerap air dan membentuk sisa makanan menjadi tinja."},
+  {e:"🚽", t:"Sisa makanan yang tidak dipakai tubuh dibuang lewat...", p:["Anus","Hidung","Telinga","Mata"], j:0, n:"Sisa makanan keluar lewat anus sebagai tinja."},
+  {e:"🥦", t:"Kebiasaan apa yang baik agar pencernaan sehat?", p:["Makan sayur dan buah","Makan sambil berlari","Tidak pernah minum air","Makan permen terus"], j:0, n:"Sayur dan buah punya serat yang membantu pencernaan."},
+  {e:"🧼", t:"Apa yang sebaiknya dilakukan sebelum makan?", p:["Mencuci tangan","Bermain tanah","Menggigit kuku","Berlari kencang"], j:0, n:"Cuci tangan pakai sabun agar kuman tidak masuk ke perut."},
+  {e:"🍚", t:"Mengapa kita harus mengunyah makanan sampai halus?", p:["Supaya mudah dicerna","Supaya cepat kenyang","Supaya gigi tumbuh","Supaya tidak haus"], j:0, n:"Makanan yang halus lebih mudah diolah oleh lambung dan usus."},
+  {e:"➡️", t:"Urutan yang benar dari mulut adalah...", p:["Mulut, kerongkongan, lambung, usus halus","Mulut, usus halus, lambung, kerongkongan","Lambung, mulut, usus besar, kerongkongan","Usus besar, lambung, mulut, usus halus"], j:0, n:"Makanan lewat mulut, kerongkongan, lambung, lalu usus halus."}
+];
+const WARNA = ["#1fb5a3","#ffd23f","#ff7a59","#7aa7ff","#b58cff","#ff9ec7"];
+
+const $ = id => document.getElementById(id);
+const acak = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){const k=Math.floor(Math.random()*(i+1));[a[i],a[k]]=[a[k],a[i]];} return a; };
+const kanvas = $("roda"), ctx = kanvas.getContext("2d");
+let sisa, skor, jumlahAwal, sedangPutar = false, terpilih;
+
+function gambarRoda(){
+  const n = sisa.length, W = kanvas.width, c = W/2, r = c-4, seg = 2*Math.PI/n;
+  ctx.clearRect(0,0,W,W);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = (n > 8 ? 60 : 78) + "px sans-serif";
+  ctx.lineWidth = 4; ctx.strokeStyle = "#1d2b53";
+  for (let i=0;i<n;i++){
+    const a0 = -Math.PI/2 + i*seg, a1 = a0+seg;
+    ctx.beginPath(); ctx.moveTo(c,c); ctx.arc(c,c,r,a0,a1); ctx.closePath();
+    ctx.fillStyle = WARNA[i % WARNA.length]; ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.translate(c,c); ctx.rotate(a0+seg/2); ctx.translate(r*0.66,0); ctx.rotate(Math.PI/2);
+    ctx.fillText(sisa[i].e, 0, 0); ctx.restore();
+  }
+  ctx.beginPath(); ctx.arc(c,c,34,0,2*Math.PI); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
+}
+
+function tampilSisa(){
+  $("sisa").textContent = "Sisa soal: " + sisa.length;
+  $("skor").textContent = "⭐ " + skor;
+}
+
+function mulai(){
+  sisa = acak(SOAL); skor = 0; jumlahAwal = sisa.length;
+  ["pSoal","pHasil"].forEach(id=>$(id).classList.add("hidden"));
+  $("pRoda").classList.remove("hidden");
+  siapkanRoda();
+}
+
+function siapkanRoda(){
+  kanvas.style.transition = "none";
+  kanvas.style.transform = "rotate(0deg)";
+  gambarRoda(); tampilSisa();
+  $("btnPutar").disabled = false;
+  sedangPutar = false;
+}
+
+function putar(){
+  if (sedangPutar) return;
+  sedangPutar = true; $("btnPutar").disabled = true;
+  const n = sisa.length, seg = 360/n;
+  const w = Math.floor(Math.random()*n);           // soal yang terpilih secara acak
+  const tengah = (w+0.5)*seg;
+  const goyang = (Math.random()-0.5)*seg*0.6;
+  const putaran = 360*(5+Math.floor(Math.random()*3)) + (360 - tengah) + goyang;
+  terpilih = w;
+  void kanvas.offsetWidth;
+  kanvas.style.transition = "transform 4.2s cubic-bezier(.12,.72,.14,1)";
+  kanvas.style.transform = "rotate(" + putaran + "deg)";
+  setTimeout(tampilSoal, 4500);
+}
+
+function tampilSoal(){
+  const s = sisa[terpilih];
+  $("pRoda").classList.add("hidden");
+  $("pSoal").classList.remove("hidden");
+  $("ikon").textContent = s.e;
+  $("tanya").textContent = s.t;
+  $("fb").textContent = "";
+  $("btnLanjut").classList.add("hidden");
+  const box = $("opsi"); box.className = "opts"; box.innerHTML = "";
+  acak(s.p.map((teks,i)=>({teks, benar:i===s.j}))).forEach(o=>{
+    const b = document.createElement("button");
+    b.className = "opt"; b.textContent = o.teks;
+    b.onclick = () => jawab(b, o.benar, s);
+    box.appendChild(b);
+  });
+}
+
+function jawab(tombol, benar, s){
+  [...$("opsi").children].forEach(b=>{
+    b.disabled = true;
+    if (b.textContent === s.p[s.j]) b.classList.add("ok");
+  });
+  $("opsi").classList.add("done");
+  if (benar){ skor++; $("fb").textContent = "🎉 Hebat, benar! " + s.n; }
+  else { tombol.classList.add("bad"); $("fb").textContent = "😅 Belum tepat. " + s.n; }
+  sisa.splice(terpilih,1);                          // soal yang sudah keluar dihapus dari roda
+  $("btnLanjut").textContent = sisa.length ? "Putar lagi 🎡" : "Lihat hasil 🏆";
+  $("btnLanjut").classList.remove("hidden");
+}
+
+function lanjut(){
+  $("pSoal").classList.add("hidden");
+  if (sisa.length){ $("pRoda").classList.remove("hidden"); siapkanRoda(); }
+  else selesai();
+}
+
+function selesai(){
+  $("pHasil").classList.remove("hidden");
+  const p = skor/jumlahAwal, b = p===1 ? 3 : p>=0.6 ? 2 : 1;
+  $("bintang").textContent = "⭐".repeat(b) + "☆".repeat(3-b);
+  $("judul").textContent = "Semua soal habis! Skor " + skor + " dari " + jumlahAwal;
+  $("pesan").textContent = p===1 ? "Luar biasa! Kamu jago sekali tentang pencernaan." :
+                           p>=0.6 ? "Bagus sekali! Sedikit lagi jadi juara." :
+                           "Tidak apa-apa, putar lagi dari awal ya!";
+}
+
+$("btnPutar").onclick = putar;
+$("btnLanjut").onclick = lanjut;
+$("btnUlang").onclick = mulai;
+mulai();
+</script>
+</body>
+</html>
